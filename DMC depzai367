@@ -1,0 +1,450 @@
+-- ========================================================
+-- ROBLOX EVADE SCRIPT HUB (TỐI ƯU CHO GAME EVADE)
+-- ========================================================
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Biến Cấu Hình
+local MenuOpen = true
+local SpeedEnabled = false
+local TargetSpeed = 50 -- Tốc độ mặc định tùy chỉnh cho Evade
+local InfiniteJumpEnabled = false
+local BhopEnabled = false
+local PlayerESPEnabled = false
+local NextbotESPEnabled = false
+
+-- Thư mục lưu trữ ESP
+local ESPFolder = Instance.new("Folder")
+ESPFolder.Name = "Evade_ESP_Storage"
+ESPFolder.Parent = CoreGui
+
+-- Hàm hỗ trợ tìm Part chính của Nhân vật / Nextbot trong Evade
+local function getPrimaryPart(model)
+    if not model then return nil end
+    return model.PrimaryPart 
+        or model:FindFirstChild("HRP") 
+        or model:FindFirstChild("HumanoidRootPart") 
+        or model:FindFirstChild("RootPart") 
+        or model:FindFirstChild("Torso") 
+        or model:FindFirstChildOfClass("BasePart")
+end
+
+-- ScreenGui Chính
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EvadeCheatMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = (gethui and gethui()) or CoreGui or LocalPlayer:WaitForChild("PlayerGui")
+
+-- Nút tròn bật/tắt (Cố định ở mép trái, KHÔNG thể kéo di chuyển)
+local ToggleCircle = Instance.new("TextButton")
+ToggleCircle.Name = "ToggleCircle"
+ToggleCircle.Size = UDim2.new(0, 50, 0, 50)
+ToggleCircle.Position = UDim2.new(0, 15, 0.5, 0)
+ToggleCircle.AnchorPoint = Vector2.new(0, 0.5)
+ToggleCircle.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+ToggleCircle.Text = "EVADE"
+ToggleCircle.TextColor3 = Color3.fromRGB(0, 220, 255)
+ToggleCircle.TextSize = 12
+ToggleCircle.Font = Enum.Font.SourceSansBold
+ToggleCircle.Active = true
+ToggleCircle.Draggable = false -- Cố định vị trí tuyệt đối
+ToggleCircle.Parent = ScreenGui
+
+local CircleCorner = Instance.new("UICorner")
+CircleCorner.CornerRadius = UDim.new(1, 0)
+CircleCorner.Parent = ToggleCircle
+
+local CircleStroke = Instance.new("UIStroke")
+CircleStroke.Color = Color3.fromRGB(0, 220, 255)
+CircleStroke.Thickness = 2
+CircleStroke.Parent = ToggleCircle
+
+-- Vị trí cố định ở giữa màn hình
+local FIXED_MENU_POSITION = UDim2.new(0.5, 0, 0.5, 0)
+
+-- Khung Menu
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 280, 0, 370)
+MainFrame.Position = FIXED_MENU_POSITION
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(45, 45, 65)
+MainStroke.Thickness = 1.5
+MainStroke.Parent = MainFrame
+
+-- Tiêu đề
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 42)
+TitleLabel.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+TitleLabel.Text = "EVADE HUB MENU"
+TitleLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
+TitleLabel.TextSize = 16
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = TitleLabel
+
+-- Container
+local Container = Instance.new("Frame")
+Container.Size = UDim2.new(1, -20, 1, -55)
+Container.Position = UDim2.new(0, 10, 0, 48)
+Container.BackgroundTransparency = 1
+Container.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = Container
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+-- Hàm tạo Nút Bật/Tắt thường
+local function createFeatureButton(text, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 36)
+    btn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+    btn.Text = text .. ": OFF"
+    btn.TextColor3 = Color3.fromRGB(180, 180, 190)
+    btn.Font = Enum.Font.SourceSansSemibold
+    btn.TextSize = 14
+    btn.Parent = Container
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = btn
+
+    local state = false
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            btn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn.Text = text .. ": ON"
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+            btn.TextColor3 = Color3.fromRGB(180, 180, 190)
+            btn.Text = text .. ": OFF"
+        end
+        callback(state)
+    end)
+    return btn
+end
+
+-- --- KHUNG TĂNG TỐC ĐỘ (Dành riêng cho Evade) ---
+local SpeedRow = Instance.new("Frame")
+SpeedRow.Size = UDim2.new(1, 0, 0, 36)
+SpeedRow.BackgroundTransparency = 1
+SpeedRow.Parent = Container
+
+local SpeedToggle = Instance.new("TextButton")
+SpeedToggle.Size = UDim2.new(0.65, 0, 1, 0)
+SpeedToggle.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+SpeedToggle.Text = "Tăng Tốc: OFF"
+SpeedToggle.TextColor3 = Color3.fromRGB(180, 180, 190)
+SpeedToggle.Font = Enum.Font.SourceSansSemibold
+SpeedToggle.TextSize = 14
+SpeedToggle.Parent = SpeedRow
+
+local SpeedToggleCorner = Instance.new("UICorner")
+SpeedToggleCorner.CornerRadius = UDim.new(0, 8)
+SpeedToggleCorner.Parent = SpeedToggle
+
+local SpeedInput = Instance.new("TextBox")
+SpeedInput.Size = UDim2.new(0.32, 0, 1, 0)
+SpeedInput.Position = UDim2.new(0.68, 0, 0, 0)
+SpeedInput.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+SpeedInput.Text = tostring(TargetSpeed)
+SpeedInput.PlaceholderText = "Tốc độ"
+SpeedInput.TextColor3 = Color3.fromRGB(0, 220, 255)
+SpeedInput.Font = Enum.Font.SourceSansBold
+SpeedInput.TextSize = 14
+SpeedInput.Parent = SpeedRow
+
+local SpeedInputCorner = Instance.new("UICorner")
+SpeedInputCorner.CornerRadius = UDim.new(0, 8)
+SpeedInputCorner.Parent = SpeedInput
+
+local SpeedInputStroke = Instance.new("UIStroke")
+SpeedInputStroke.Color = Color3.fromRGB(0, 220, 255)
+SpeedInputStroke.Thickness = 1
+SpeedInputStroke.Parent = SpeedInput
+
+SpeedToggle.MouseButton1Click:Connect(function()
+    SpeedEnabled = not SpeedEnabled
+    if SpeedEnabled then
+        SpeedToggle.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        SpeedToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+        SpeedToggle.Text = "Tăng Tốc: ON"
+    else
+        SpeedToggle.BackgroundColor3 = Color3.fromRGB(32, 32, 45)
+        SpeedToggle.TextColor3 = Color3.fromRGB(180, 180, 190)
+        SpeedToggle.Text = "Tăng Tốc: OFF"
+    end
+end)
+
+SpeedInput.FocusLost:Connect(function()
+    local num = tonumber(SpeedInput.Text)
+    if num and num > 0 then
+        TargetSpeed = num
+    else
+        SpeedInput.Text = tostring(TargetSpeed)
+    end
+end)
+
+-- Bật/tắt menu tự động đưa về vị trí trung tâm ban đầu
+ToggleCircle.MouseButton1Click:Connect(function()
+    MenuOpen = not MenuOpen
+    MainFrame.Position = FIXED_MENU_POSITION
+    MainFrame.Visible = MenuOpen
+end)
+
+-- Nút các tính năng
+createFeatureButton("Infinite Jump", function(enabled)
+    InfiniteJumpEnabled = enabled
+end)
+
+createFeatureButton("Bhop (Bunny Hop)", function(enabled)
+    BhopEnabled = enabled
+end)
+
+createFeatureButton("ESP Người Chơi", function(enabled)
+    PlayerESPEnabled = enabled
+    if not enabled then
+        for _, item in pairs(ESPFolder:GetChildren()) do
+            if item:GetAttribute("ESPType") == "Player" then
+                item:Destroy()
+            end
+        end
+    end
+end)
+
+createFeatureButton("ESP Nextbot Quái", function(enabled)
+    NextbotESPEnabled = enabled
+    if not enabled then
+        for _, item in pairs(ESPFolder:GetChildren()) do
+            if item:GetAttribute("ESPType") == "Nextbot" then
+                item:Destroy()
+            end
+        end
+    end
+end)
+
+-- ========================================================
+-- LOGIC TÍNH NĂNG TỐI ƯU CHO EVADE
+-- ========================================================
+
+-- 1. XỬ LÝ TĂNG TỐC (CFrame Velocity Boost - Bypass Evade Anti-Speed)
+RunService.RenderStepped:Connect(function(deltaTime)
+    if SpeedEnabled and LocalPlayer.Character then
+        local char = LocalPlayer.Character
+        local root = getPrimaryPart(char)
+        local hum = char:FindFirstChildOfClass("Humanoid")
+
+        if root and hum and hum.MoveDirection.Magnitude > 0 then
+            local extraSpeed = math.max(0, TargetSpeed - 16)
+            if extraSpeed > 0 then
+                -- Dịch chuyển CFrame mượt mà theo hướng di chuyển của nhân vật
+                root.CFrame = root.CFrame + (hum.MoveDirection * (extraSpeed * deltaTime))
+            end
+        end
+    end
+end)
+
+-- 2. XỬ LÝ INFINITE JUMP
+UserInputService.JumpRequest:Connect(function()
+    if InfiniteJumpEnabled and LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+-- 3. XỬ LÝ BHOP
+RunService.RenderStepped:Connect(function()
+    if BhopEnabled and UserInputService:IsKeyDown(Enum.KeyCode.Space) and LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum and hum.FloorMaterial ~= Enum.Material.Air then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+-- ========================================================
+-- CÁC HÀM TẠO ESP XUYÊN TƯỜNG & HITBOX
+-- ========================================================
+
+local function createNameTag(parentPart, nameText, color)
+    local bbg = Instance.new("BillboardGui")
+    bbg.Name = "NameTag"
+    bbg.Adornee = parentPart
+    bbg.Size = UDim2.new(0, 160, 0, 30)
+    bbg.StudsOffset = Vector3.new(0, 3.5, 0)
+    bbg.AlwaysOnTop = true
+
+    local txt = Instance.new("TextLabel")
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.Text = nameText
+    txt.TextColor3 = color
+    txt.TextSize = 14
+    txt.Font = Enum.Font.SourceSansBold
+    txt.TextStrokeTransparency = 0
+    txt.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    txt.Parent = bbg
+
+    return bbg
+end
+
+local function createHitboxBox(part, color)
+    local box = Instance.new("BoxHandleAdornment")
+    box.Name = "HitboxBox"
+    box.Adornee = part
+    box.Size = part.Size + Vector3.new(0.2, 0.2, 0.2)
+    box.Color3 = color
+    box.Transparency = 0.4
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    return box
+end
+
+-- Tìm danh sách Nextbots (Quét sâu cấu trúc thư mục của Evade)
+local function getEvadeNextbots()
+    local nextbots = {}
+    local gameFolder = workspace:FindFirstChild("Game")
+
+    if gameFolder then
+        -- 1. Thư mục Game.Bots
+        local botFolder = gameFolder:FindFirstChild("Bots")
+        if botFolder then
+            for _, bot in pairs(botFolder:GetChildren()) do
+                if bot:IsA("Model") then
+                    table.insert(nextbots, bot)
+                end
+            end
+        end
+
+        -- 2. Thư mục Game.Players (Chứa NPC/Nextbot không thuộc Players Service)
+        local gamePlayers = gameFolder:FindFirstChild("Players")
+        if gamePlayers then
+            for _, obj in pairs(gamePlayers:GetChildren()) do
+                if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
+                    table.insert(nextbots, obj)
+                end
+            end
+        end
+    end
+
+    -- 3. Thư mục Workspace gốc (Dự phòng)
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) and obj ~= LocalPlayer.Character then
+            if (obj:FindFirstChild("HRP") or obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildOfClass("Humanoid")) 
+               and obj.Name ~= "Game" and obj.Name ~= "Map" then
+                if not table.find(nextbots, obj) then
+                    table.insert(nextbots, obj)
+                end
+            end
+        end
+    end
+
+    return nextbots
+end
+
+-- Vòng lặp cập nhật ESP định kỳ
+RunService.RenderStepped:Connect(function()
+    -- Dọn dẹp ESP cũ khi đối tượng đã biến mất / chết
+    for _, espGroup in pairs(ESPFolder:GetChildren()) do
+        local tag = espGroup:FindFirstChild("NameTag")
+        if tag and (not tag.Adornee or not tag.Adornee.Parent) then
+            espGroup:Destroy()
+        end
+    end
+
+    -- --- 1. ESP NGƯỜI CHƠI (Màu Xanh Lá) ---
+    if PlayerESPEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                local char = player.Character or (workspace:FindFirstChild("Game") and workspace.Game:FindFirstChild("Players") and workspace.Game.Players:FindFirstChild(player.Name))
+                if char then
+                    local root = getPrimaryPart(char)
+                    local folderName = "P_" .. player.Name
+
+                    if root and not ESPFolder:FindFirstChild(folderName) then
+                        local espGroup = Instance.new("Folder")
+                        espGroup.Name = folderName
+                        espGroup:SetAttribute("ESPType", "Player")
+
+                        -- Highlight xuyên tường
+                        local hl = Instance.new("Highlight")
+                        hl.Adornee = char
+                        hl.FillColor = Color3.fromRGB(0, 255, 100)
+                        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        hl.FillTransparency = 0.5
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Parent = espGroup
+
+                        -- Hitbox Khung Xanh Lá
+                        local hitbox = createHitboxBox(root, Color3.fromRGB(0, 255, 100))
+                        hitbox.Parent = espGroup
+
+                        -- Tên Người Chơi
+                        local nameTag = createNameTag(root, "[Player] " .. player.Name, Color3.fromRGB(0, 255, 100))
+                        nameTag.Parent = espGroup
+
+                        espGroup.Parent = ESPFolder
+                    end
+                end
+            end
+        end
+    end
+
+    -- --- 2. ESP NEXTBOT / QUÁI EVADE (Màu Đỏ) ---
+    if NextbotESPEnabled then
+        local nextbots = getEvadeNextbots()
+        for _, bot in pairs(nextbots) do
+            local root = getPrimaryPart(bot)
+            local folderName = "N_" .. bot.Name .. "_" .. tostring(bot:GetDebugId())
+
+            if root and not ESPFolder:FindFirstChild(folderName) then
+                local espGroup = Instance.new("Folder")
+                espGroup.Name = folderName
+                espGroup:SetAttribute("ESPType", "Nextbot")
+
+                -- Highlight Đỏ xuyên tường
+                local hl = Instance.new("Highlight")
+                hl.Adornee = bot
+                hl.FillColor = Color3.fromRGB(255, 30, 30)
+                hl.OutlineColor = Color3.fromRGB(255, 255, 0)
+                hl.FillTransparency = 0.3
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.Parent = espGroup
+
+                -- Hitbox Khung Đỏ
+                local hitbox = createHitboxBox(root, Color3.fromRGB(255, 0, 0))
+                hitbox.Parent = espGroup
+
+                -- Tên Nextbot
+                local nameTag = createNameTag(root, "⚠️ [NEXTBOT] " .. bot.Name, Color3.fromRGB(255, 50, 50))
+                nameTag.Parent = espGroup
+
+                espGroup.Parent = ESPFolder
+            end
+        end
+    end
+end)
